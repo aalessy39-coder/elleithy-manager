@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,10 +20,14 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Accept SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: Install Android SDK
-        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+        shell: bash
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -32,28 +35,30 @@ jobs:
           gradle-version: '8.9'
 
       - name: Extract project
+        shell: bash
         run: |
-          if [ -f FleetManagerPro_MultiPlatform.zip ]; then
+          if [ -f "FleetManagerPro_MultiPlatform.zip" ]; then
             unzip -o FleetManagerPro_MultiPlatform.zip -d extracted
-          elif [ -f FleetManagerPro_Android.zip ]; then
+          elif [ -f "FleetManagerPro_Android.zip" ]; then
             unzip -o FleetManagerPro_Android.zip -d extracted
           else
-            echo "ERROR: No Android ZIP found."
+            echo "Android ZIP not found"
             exit 1
           fi
 
       - name: Find Android project
         id: project
+        shell: bash
         run: |
           SETTINGS=$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: No settings.gradle found in ZIP."
-            find extracted -maxdepth 3 -type f | head -80
+            echo "settings.gradle not found"
             exit 1
           fi
           echo "dir=$(dirname "$SETTINGS")" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
+        shell: bash
         run: gradle -p "${{ steps.project.outputs.dir }}" assembleDebug
 
       - name: Upload APK
