@@ -1,0 +1,13 @@
+{
+  "name": "ELLEITHY MANAGER",
+  "short_name": "ELLEITHY",
+  "description": "إدارة العربيات والسائقين والورديات والصيانة",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f5fa",
+  "theme_color": "#102f58",
+  "icons": []
+}
