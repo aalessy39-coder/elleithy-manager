@@ -5,65 +5,62 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept SDK licenses
-        shell: bash
-        run: |
-          yes | sdkmanager --licenses || true
-
-      - name: Install Android SDK
-        shell: bash
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract project
+      - name: Install Android SDK packages
         shell: bash
         run: |
-          if [ -f "FleetManagerPro_MultiPlatform.zip" ]; then
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          printf 'y\n%.0s' {1..100} | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract Android project
+        shell: bash
+        run: |
+          mkdir -p extracted
+          if [ -f FleetManagerPro_MultiPlatform.zip ]; then
             unzip -o FleetManagerPro_MultiPlatform.zip -d extracted
-          elif [ -f "FleetManagerPro_Android.zip" ]; then
+          elif [ -f FleetManagerPro_Android.zip ]; then
             unzip -o FleetManagerPro_Android.zip -d extracted
           else
-            echo "Android ZIP not found"
+            echo "ERROR: ZIP file not found"
             exit 1
           fi
 
-      - name: Find Android project
+      - name: Find project
         id: project
         shell: bash
         run: |
           SETTINGS=$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
           if [ -z "$SETTINGS" ]; then
-            echo "settings.gradle not found"
+            echo "ERROR: Android project not found inside ZIP"
             exit 1
           fi
           echo "dir=$(dirname "$SETTINGS")" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
         shell: bash
-        run: gradle -p "${{ steps.project.outputs.dir }}" assembleDebug
+        run: |
+          gradle -p "${{ steps.project.outputs.dir }}" assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ELLEITHY-MANAGER-APK
-          path: extracted/**/app/build/outputs/apk/debug/app-debug.apk
+          path: extracted/**/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
