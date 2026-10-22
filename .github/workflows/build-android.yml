@@ -12,27 +12,52 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '%s\n' \
+            "8933bad161af4178b1185d1a37fbf41ea5269c55" \
+            "d56f5187479451eabf01fb78af6dfcb131a6481e" \
+            "24333f8a63b6825ea9c5514f83c2829b004d1fee" \
+            > "$ANDROID_HOME/licenses/android-sdk-license"
+          yes | sdkmanager --licenses || true
 
       - name: Install Android SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Extract project
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract Android project
         run: |
-          unzip -o FleetManagerPro_MultiPlatform.zip -d extracted
-          find extracted -name settings.gradle -print
+          if [ -f "FleetManagerPro_MultiPlatform.zip" ]; then
+            unzip -o FleetManagerPro_MultiPlatform.zip -d extracted
+          elif [ -f "FleetManagerPro_Android.zip" ]; then
+            unzip -o FleetManagerPro_Android.zip -d extracted
+          else
+            echo "ERROR: Android project ZIP not found."
+            exit 1
+          fi
+
+      - name: Find project
+        id: project
+        run: |
+          SETTINGS=$(find extracted \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle not found."
+            exit 1
+          fi
+          echo "dir=$(dirname "$SETTINGS")" >> "$GITHUB_OUTPUT"
 
       - name: Build APK
-        run: |
-          PROJECT=$(dirname "$(find extracted -name settings.gradle -print -quit)")
-          test -n "$PROJECT"
-          gradle -p "$PROJECT" assembleDebug
+        run: gradle -p "${{ steps.project.outputs.dir }}" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
